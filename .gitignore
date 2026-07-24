@@ -1,0 +1,13 @@
+# .NET build output
+bin/
+obj/
+
+# Visual Studio / Rider
+.vs/
+.idea/
+*.user
+*.suo
+
+# User secrets
+appsettings.*.json
+secrets.json
