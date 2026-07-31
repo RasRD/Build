@@ -9,7 +9,8 @@ static class MarkdownChunker
 
         foreach (var paragraph in paragraphs)
         {
-            if (buffer.Length + paragraph.Length > maxChars && buffer.Length > 0)
+            var isHeading = paragraph.TrimStart().StartsWith('#');
+            if (buffer.Length > 0 && (isHeading || buffer.Length + paragraph.Length > maxChars))
             {
                 yield return buffer.ToString().Trim();
                 buffer.Clear();
