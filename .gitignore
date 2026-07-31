@@ -11,3 +11,4 @@ obj/
 # User secrets
 appsettings.*.json
 secrets.json
+.git-credentials
