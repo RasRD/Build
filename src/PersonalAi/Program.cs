@@ -8,7 +8,11 @@ Console.WriteLine("PersonalAi – Stage 1: Mini-RAG");
 Console.WriteLine();
 
 var notesDirectory = FindSamplesDirectory();
-IEmbeddingService embeddingService = new HashingEmbeddingService();
+var modelDirectory = FindModelDirectory();
+
+Console.WriteLine("Loading distiluse-base-multilingual-cased-v2 (ONNX)...");
+using var embeddingService = new OnnxEmbeddingService(modelDirectory);
+Console.WriteLine();
 
 var chunks = new List<NoteChunk>();
 foreach (var (fileName, text) in MarkdownNoteReader.ReadAll(notesDirectory))
@@ -28,6 +32,8 @@ var queries = new[]
     "how do I stop clients from hitting my service too often",
     "why would recently accessed data be removed when memory runs out",
     "how can I make a login token disappear automatically after a while",
+    // Cross-lingual bonus check: same "session token expiry" meaning as query 3, in Russian.
+    "как сделать так, чтобы токен сессии переставал действовать через некоторое время",
 };
 
 foreach (var query in queries)
@@ -44,12 +50,17 @@ foreach (var query in queries)
     Console.WriteLine();
 }
 
-static string FindSamplesDirectory()
+static string FindSamplesDirectory() => Path.Combine(FindRepositoryRoot(), "samples", "notes");
+
+static string FindModelDirectory() =>
+    Path.Combine(FindRepositoryRoot(), "models", "distiluse-base-multilingual-cased-v2");
+
+static string FindRepositoryRoot()
 {
     var dir = new DirectoryInfo(AppContext.BaseDirectory);
     while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "PersonalAi.sln")))
         dir = dir.Parent;
     if (dir is null)
         throw new DirectoryNotFoundException("Could not locate repository root (PersonalAi.sln not found).");
-    return Path.Combine(dir.FullName, "samples", "notes");
+    return dir.FullName;
 }
