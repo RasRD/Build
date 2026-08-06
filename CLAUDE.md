@@ -124,46 +124,50 @@ After implementation, report:
 
 ## Current Stage
 
-Stage 1: Mini-RAG over Markdown notes.
+Stage 2: Golden set and LLM-as-judge evaluation.
+
+Stage 1 (Mini-RAG over Markdown notes) is done: hashing embeddings, then a
+local ONNX multilingual embedding model, then heading-based chunking. See
+`sessions/2026-07-31-stage1-mini-rag.md` through
+`sessions/2026-08-01-stage1-mini-rag-session4.md`.
 
 ## Current Session Hypothesis
 
-Embedding-based retrieval can find a relevant Markdown fragment even when the query and the note use different words.
+A local LLM (via Ollama, running entirely offline with no API costs) can
+automatically judge whether a retrieved chunk is relevant to a query, and its
+verdicts agree with the manual "expected note" judgments already recorded in
+the Stage 1 session logs.
 
 ## Current Session Result
 
-Create a minimal .NET console application that:
-
-1. reads several sample Markdown notes;
-2. splits them into chunks;
-3. creates embeddings for the chunks;
-4. creates an embedding for a user query;
-5. calculates similarity;
-6. prints the three most relevant chunks with source filenames and scores.
+Formalize the ad hoc query list used across Stage 1 sessions into a golden
+set (query + expected note), run it through the existing Stage 1 retrieval
+pipeline unchanged, and have a local LLM (Ollama, `llama3`) judge each
+retrieved chunk's relevance, printing its verdict and reasoning alongside the
+retrieval score.
 
 ## Acceptance Criterion
 
-Run three predefined queries against approximately three sample notes.
-
-The experiment is accepted when:
-
-* the expected note appears in the top three results for every query;
-* the complete path from Markdown file to ranked result can be explained;
-* the actual outputs are shown;
-* observed retrieval mistakes are recorded.
+For every golden-set query: the judge's relevance verdicts are shown for all
+top-3 chunks, and they are compared against the expected-note judgments
+already recorded in Stage 1's session logs. Accepted when the judge's
+verdicts are explainable (each has a reasoning string) and any disagreement
+with the Stage 1 manual judgment is recorded, not hidden.
 
 ## Current Session Non-Goals
 
 Do not add:
 
-* final answer generation;
+* a paid/cloud LLM API (Anthropic, OpenAI, etc.) — local only, decided
+  explicitly because of cost;
+* automated scoring/aggregation beyond printing verdicts (e.g. precision/
+  recall over the golden set) — a candidate for a later session;
 * a vector database;
 * an agent framework;
 * MCP;
 * prompt-injection defenses;
 * caching or model routing;
 * processing of the complete Obsidian vault;
-* sophisticated Markdown parsing;
 * production error handling.
 
 

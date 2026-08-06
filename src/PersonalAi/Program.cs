@@ -1,5 +1,6 @@
 using PersonalAi.Chunking;
 using PersonalAi.Embeddings;
+using PersonalAi.Evaluation;
 using PersonalAi.Models;
 using PersonalAi.Notes;
 using PersonalAi.Retrieval;
@@ -46,6 +47,31 @@ foreach (var query in queries)
     {
         var preview = chunk.Text.Length > 80 ? chunk.Text[..80] + "..." : chunk.Text;
         Console.WriteLine($"  [{score:F3}] {chunk.SourceFile} :: {preview.ReplaceLineEndings(" ")}");
+    }
+    Console.WriteLine();
+}
+
+Console.WriteLine("=== LLM-as-judge (Ollama, model: llama3) ===");
+Console.WriteLine();
+
+var judge = new LlmJudge();
+
+foreach (var golden in GoldenSet.Queries)
+{
+    var queryEmbedding = await embeddingService.EmbedAsync(golden.Query);
+    var results = SimilaritySearch.TopK(chunks, queryEmbedding, 3).ToList();
+    var expectedInTopK = results.Any(r => r.Chunk.SourceFile == golden.ExpectedNoteFile);
+
+    Console.WriteLine($"Query: \"{golden.Query}\"");
+    Console.WriteLine($"  Expected note: {golden.ExpectedNoteFile} (in top-3: {expectedInTopK})");
+
+    foreach (var (chunk, score) in results)
+    {
+        var verdict = await judge.JudgeAsync(golden.Query, chunk.Text);
+        var preview = chunk.Text.Length > 80 ? chunk.Text[..80] + "..." : chunk.Text;
+        Console.WriteLine(
+            $"  [{score:F3}] {chunk.SourceFile} :: judge relevant={verdict.Relevant} :: {verdict.Reasoning}");
+        Console.WriteLine($"      chunk: {preview.ReplaceLineEndings(" ")}");
     }
     Console.WriteLine();
 }
