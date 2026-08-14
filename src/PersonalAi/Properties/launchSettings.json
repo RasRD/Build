@@ -1,0 +1,13 @@
+{
+  "profiles": {
+    "PersonalAi": {
+      "commandName": "Project"
+    },
+    "Experiment": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "RunLog__Enabled": "true"
+      }
+    }
+  }
+}

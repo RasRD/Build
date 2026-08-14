@@ -1,24 +1,35 @@
+using System.Text.Json;
+using Microsoft.Extensions.Configuration;
 using PersonalAi.Chunking;
+using PersonalAi.Configuration;
 using PersonalAi.Embeddings;
 using PersonalAi.Evaluation;
 using PersonalAi.Models;
 using PersonalAi.Notes;
 using PersonalAi.Retrieval;
 
-Console.WriteLine("PersonalAi – Stage 1: Mini-RAG");
+Console.WriteLine("PersonalAi – Stage 2: Golden set and LLM-as-judge evaluation");
 Console.WriteLine();
 
-var notesDirectory = FindSamplesDirectory();
-var modelDirectory = FindModelDirectory();
+var configuration = new ConfigurationBuilder()
+    .SetBasePath(AppContext.BaseDirectory)
+    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
+    .AddEnvironmentVariables()
+    .Build();
+var settings = configuration.Get<AppSettings>() ?? new AppSettings();
+
+var notesDirectory = ResolveRepoPath(settings.Corpus.NotesDirectory);
+var modelDirectory = ResolveRepoPath(settings.Embedding.ModelDirectory);
+var runLogDirectory = ResolveRepoPath(settings.RunLog.Directory);
 
 Console.WriteLine("Loading distiluse-base-multilingual-cased-v2 (ONNX)...");
-using var embeddingService = new OnnxEmbeddingService(modelDirectory);
+using var embeddingService = new OnnxEmbeddingService(modelDirectory, settings.Embedding.MaxTokens);
 Console.WriteLine();
 
 var chunks = new List<NoteChunk>();
 foreach (var (fileName, text) in MarkdownNoteReader.ReadAll(notesDirectory))
 {
-    foreach (var chunkText in MarkdownChunker.Chunk(text))
+    foreach (var chunkText in MarkdownChunker.Chunk(text, settings.Chunking.MaxChars))
     {
         var embedding = await embeddingService.EmbedAsync(chunkText);
         chunks.Add(new NoteChunk(fileName, chunkText, embedding));
@@ -28,58 +39,65 @@ foreach (var (fileName, text) in MarkdownNoteReader.ReadAll(notesDirectory))
 Console.WriteLine($"Loaded {chunks.Count} chunks from '{notesDirectory}'.");
 Console.WriteLine();
 
-var queries = new[]
-{
-    "how do I stop clients from hitting my service too often",
-    "why would recently accessed data be removed when memory runs out",
-    "how can I make a login token disappear automatically after a while",
-    // Cross-lingual bonus check: same "session token expiry" meaning as query 3, in Russian.
-    "как сделать так, чтобы токен сессии переставал действовать через некоторое время",
-};
-
-foreach (var query in queries)
-{
-    var queryEmbedding = await embeddingService.EmbedAsync(query);
-    var results = SimilaritySearch.TopK(chunks, queryEmbedding, 3);
-
-    Console.WriteLine($"Query: \"{query}\"");
-    foreach (var (chunk, score) in results)
-    {
-        var preview = chunk.Text.Length > 80 ? chunk.Text[..80] + "..." : chunk.Text;
-        Console.WriteLine($"  [{score:F3}] {chunk.SourceFile} :: {preview.ReplaceLineEndings(" ")}");
-    }
-    Console.WriteLine();
-}
-
-Console.WriteLine("=== LLM-as-judge (Ollama, model: llama3) ===");
+Console.WriteLine($"=== LLM-as-judge (Ollama, model: {settings.Judge.Model}) ===");
 Console.WriteLine();
 
-var judge = new LlmJudge();
+var judge = new LlmJudge(settings.Judge.Model, settings.Judge.OllamaBaseUrl);
+var runStartedAtUtc = DateTimeOffset.UtcNow;
+var queryResults = new List<QueryRunResult>();
 
 foreach (var golden in GoldenSet.Queries)
 {
+    var queryStartedAtUtc = DateTimeOffset.UtcNow;
+
     var queryEmbedding = await embeddingService.EmbedAsync(golden.Query);
-    var results = SimilaritySearch.TopK(chunks, queryEmbedding, 3).ToList();
+    var results = SimilaritySearch.TopK(chunks, queryEmbedding, settings.Retrieval.TopK).ToList();
     var expectedInTopK = results.Any(r => r.Chunk.SourceFile == golden.ExpectedNoteFile);
 
     Console.WriteLine($"Query: \"{golden.Query}\"");
-    Console.WriteLine($"  Expected note: {golden.ExpectedNoteFile} (in top-3: {expectedInTopK})");
+    Console.WriteLine($"  Expected note: {golden.ExpectedNoteFile} (in top-{settings.Retrieval.TopK}: {expectedInTopK})");
 
+    var chunkVerdicts = new List<ChunkVerdict>();
     foreach (var (chunk, score) in results)
     {
         var verdict = await judge.JudgeAsync(golden.Query, chunk.Text);
-        var preview = chunk.Text.Length > 80 ? chunk.Text[..80] + "..." : chunk.Text;
+        var preview = chunk.Text.Length > settings.RunLog.PreviewChars
+            ? chunk.Text[..settings.RunLog.PreviewChars] + "..."
+            : chunk.Text;
+        var previewOneLine = preview.ReplaceLineEndings(" ");
+
         Console.WriteLine(
             $"  [{score:F3}] {chunk.SourceFile} :: judge relevant={verdict.Relevant} :: {verdict.Reasoning}");
-        Console.WriteLine($"      chunk: {preview.ReplaceLineEndings(" ")}");
+        Console.WriteLine($"      chunk: {previewOneLine}");
+
+        chunkVerdicts.Add(new ChunkVerdict(chunk.SourceFile, score, previewOneLine, verdict.Relevant, verdict.Reasoning));
     }
     Console.WriteLine();
+
+    queryResults.Add(new QueryRunResult(
+        golden.Query, golden.ExpectedNoteFile, expectedInTopK, chunkVerdicts,
+        queryStartedAtUtc, DateTimeOffset.UtcNow));
 }
 
-static string FindSamplesDirectory() => Path.Combine(FindRepositoryRoot(), "samples", "notes");
+if (settings.RunLog.Enabled)
+{
+    var runParameters = new RunParameters(
+        settings.Corpus.NotesDirectory, settings.Embedding.ModelDirectory, settings.Chunking.MaxChars,
+        settings.Embedding.MaxTokens, settings.Retrieval.TopK, settings.Judge.Model, settings.Judge.OllamaBaseUrl,
+        settings.RunLog.PreviewChars);
+    var runLog = new RunLog(runStartedAtUtc, DateTimeOffset.UtcNow, chunks.Count, runParameters, queryResults);
 
-static string FindModelDirectory() =>
-    Path.Combine(FindRepositoryRoot(), "models", "distiluse-base-multilingual-cased-v2");
+    Directory.CreateDirectory(runLogDirectory);
+    var runLogPath = Path.Combine(runLogDirectory, $"{DateTimeOffset.UtcNow:yyyyMMdd-HHmmss}.json");
+    await File.WriteAllTextAsync(runLogPath, JsonSerializer.Serialize(runLog, new JsonSerializerOptions { WriteIndented = true }));
+    Console.WriteLine($"Run log written to {runLogPath}");
+}
+else
+{
+    Console.WriteLine("Run log skipped (RunLog:Enabled is false; use the 'Experiment' launch profile to enable it).");
+}
+
+string ResolveRepoPath(string relativePath) => Path.Combine(FindRepositoryRoot(), relativePath);
 
 static string FindRepositoryRoot()
 {

@@ -14,8 +14,7 @@ namespace PersonalAi.Embeddings;
 /// </summary>
 sealed class OnnxEmbeddingService : IEmbeddingService, IDisposable
 {
-    const int MaxTokens = 256;
-
+    readonly int _maxTokens;
     readonly InferenceSession _session;
     readonly BertTokenizer _tokenizer;
     readonly string _inputIdsName;
@@ -27,8 +26,9 @@ sealed class OnnxEmbeddingService : IEmbeddingService, IDisposable
     readonly int _denseInFeatures;
     readonly int _denseOutFeatures;
 
-    public OnnxEmbeddingService(string modelDirectory)
+    public OnnxEmbeddingService(string modelDirectory, int maxTokens = 256)
     {
+        _maxTokens = maxTokens;
         _session = new InferenceSession(Path.Combine(modelDirectory, "model.onnx"));
 
         _tokenizer = new BertTokenizer();
@@ -52,7 +52,7 @@ sealed class OnnxEmbeddingService : IEmbeddingService, IDisposable
 
     public Task<float[]> EmbedAsync(string text)
     {
-        var (inputIds, attentionMask, tokenTypeIds) = _tokenizer.Encode(text, MaxTokens);
+        var (inputIds, attentionMask, tokenTypeIds) = _tokenizer.Encode(text, _maxTokens);
         var seqLen = inputIds.Length;
 
         var inputIdsTensor = new DenseTensor<long>(new[] { 1, seqLen });

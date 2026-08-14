@@ -10,9 +10,9 @@ record JudgeVerdict(bool Relevant, string Reasoning);
 /// Requires `ollama serve` (default install runs it as a background service) and the
 /// given model already pulled, e.g. `ollama pull llama3`.
 /// </summary>
-sealed class LlmJudge(string model = "llama3")
+sealed class LlmJudge(string model = "llama3", string baseUrl = "http://localhost:11434/")
 {
-    static readonly HttpClient Http = new() { BaseAddress = new Uri("http://localhost:11434/") };
+    readonly HttpClient _http = new() { BaseAddress = new Uri(baseUrl) };
 
     public async Task<JudgeVerdict> JudgeAsync(string query, string chunkText)
     {
@@ -34,7 +34,7 @@ sealed class LlmJudge(string model = "llama3")
             stream = false,
         });
 
-        using var response = await Http.PostAsync(
+        using var response = await _http.PostAsync(
             "api/chat", new StringContent(requestBody, Encoding.UTF8, "application/json"));
         response.EnsureSuccessStatusCode();
 

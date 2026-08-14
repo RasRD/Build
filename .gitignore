@@ -15,3 +15,6 @@ secrets.json
 
 # Downloaded embedding model files (large binaries, not source)
 models/
+
+# Generated per-run evaluation logs
+runs/

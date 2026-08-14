@@ -129,30 +129,39 @@ Stage 2: Golden set and LLM-as-judge evaluation.
 Stage 1 (Mini-RAG over Markdown notes) is done: hashing embeddings, then a
 local ONNX multilingual embedding model, then heading-based chunking. See
 `sessions/2026-07-31-stage1-mini-rag.md` through
-`sessions/2026-08-01-stage1-mini-rag-session4.md`.
+`sessions/2026-08-01-stage1-mini-rag-session3.md`.
+
+Stage 2 session 1 (golden set formalized, Ollama `llama3` LLM-as-judge
+wired up) is done. See
+`sessions/2026-08-06-stage2-golden-set-llm-judge-session1.md`.
+
+Stage 2 session 2 (settings externalized into `appsettings.json`, run
+outcomes persisted to `runs/*.json`, corpus expanded with paraphrase/
+distractor notes) is done. See
+`sessions/2026-08-14-stage2-golden-set-llm-judge-session2.md`.
 
 ## Current Session Hypothesis
 
-A local LLM (via Ollama, running entirely offline with no API costs) can
-automatically judge whether a retrieved chunk is relevant to a query, and its
-verdicts agree with the manual "expected note" judgments already recorded in
-the Stage 1 session logs.
+Aggregating the run logs already captured in `runs/*.json` into simple
+retrieval metrics (e.g. Recall@K, Mean Reciprocal Rank, judge-vs-expected
+agreement rate) makes it possible to experimentally compare two retrieval
+configurations side by side, using numbers instead of re-reading console
+output by hand.
 
 ## Current Session Result
 
-Formalize the ad hoc query list used across Stage 1 sessions into a golden
-set (query + expected note), run it through the existing Stage 1 retrieval
-pipeline unchanged, and have a local LLM (Ollama, `llama3`) judge each
-retrieved chunk's relevance, printing its verdict and reasoning alongside the
-retrieval score.
+Not yet run — this is the next session, anticipated but not started. Likely
+shape: a small aggregation step (script or console mode) that reads one or
+more `runs/*.json` files and prints/compares metrics; see the "Deferred"
+section of `sessions/2026-08-14-stage2-golden-set-llm-judge-session2.md` for
+the open methodological question (how to score queries where more than one
+note in the corpus legitimately answers the query) that this session should
+resolve before writing the aggregation logic.
 
 ## Acceptance Criterion
 
-For every golden-set query: the judge's relevance verdicts are shown for all
-top-3 chunks, and they are compared against the expected-note judgments
-already recorded in Stage 1's session logs. Accepted when the judge's
-verdicts are explainable (each has a reasoning string) and any disagreement
-with the Stage 1 manual judgment is recorded, not hidden.
+Not yet defined — to be restated at the start of that session per the
+Working Method above.
 
 ## Current Session Non-Goals
 
@@ -160,8 +169,6 @@ Do not add:
 
 * a paid/cloud LLM API (Anthropic, OpenAI, etc.) — local only, decided
   explicitly because of cost;
-* automated scoring/aggregation beyond printing verdicts (e.g. precision/
-  recall over the golden set) — a candidate for a later session;
 * a vector database;
 * an agent framework;
 * MCP;
