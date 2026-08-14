@@ -8,6 +8,12 @@ using PersonalAi.Models;
 using PersonalAi.Notes;
 using PersonalAi.Retrieval;
 
+if (args.Length > 0 && args[0] == "metrics")
+{
+    RunMetricsMode(args.Skip(1).ToArray());
+    return;
+}
+
 Console.WriteLine("PersonalAi – Stage 2: Golden set and LLM-as-judge evaluation");
 Console.WriteLine();
 
@@ -95,6 +101,45 @@ if (settings.RunLog.Enabled)
 else
 {
     Console.WriteLine("Run log skipped (RunLog:Enabled is false; use the 'Experiment' launch profile to enable it).");
+}
+
+static void RunMetricsMode(string[] paths)
+{
+    if (paths.Length == 0)
+    {
+        Console.WriteLine("Usage: dotnet run -- metrics <run1.json> [run2.json]");
+        return;
+    }
+
+    var results = new List<(string Path, RunMetrics Metrics)>();
+    foreach (var path in paths)
+    {
+        var log = RunMetrics.Load(path);
+        var metrics = RunMetrics.Compute(log);
+        results.Add((path, metrics));
+
+        Console.WriteLine($"{Path.GetFileName(path)} (TopK={log.Parameters.TopK}):");
+        Console.WriteLine($"  Recall@K:        {metrics.RecallAtK:P1}");
+        Console.WriteLine($"  MRR:             {metrics.MeanReciprocalRank:F3}");
+        Console.WriteLine($"  Judge agreement: {metrics.JudgeAgreementRate:P1}");
+        Console.WriteLine();
+    }
+
+    if (results.Count == 2)
+    {
+        var (pathA, a) = results[0];
+        var (pathB, b) = results[1];
+        Console.WriteLine($"Diff ({Path.GetFileName(pathB)} - {Path.GetFileName(pathA)}):");
+        Console.WriteLine($"  Recall@K:        {Signed(b.RecallAtK - a.RecallAtK, "P1")}");
+        Console.WriteLine($"  MRR:             {Signed(b.MeanReciprocalRank - a.MeanReciprocalRank, "F3")}");
+        Console.WriteLine($"  Judge agreement: {Signed(b.JudgeAgreementRate - a.JudgeAgreementRate, "P1")}");
+    }
+}
+
+static string Signed(double value, string format)
+{
+    var formatted = value.ToString(format);
+    return value >= 0 ? "+" + formatted : formatted;
 }
 
 string ResolveRepoPath(string relativePath) => Path.Combine(FindRepositoryRoot(), relativePath);
