@@ -140,23 +140,34 @@ outcomes persisted to `runs/*.json`, corpus expanded with paraphrase/
 distractor notes) is done. See
 `sessions/2026-08-14-stage2-golden-set-llm-judge-session2.md`.
 
+Stage 2 session 3 (`metrics` console mode aggregating Recall@K, MRR, and
+judge-vs-expected agreement rate from one or two `runs/*.json` files) is
+done — commit `0b2c3d4`. No session note was written for it at the time; the
+gap is recorded here rather than backfilled, since the retrospective context
+(design decisions, verification steps) wasn't captured when it landed.
+Matching against `ExpectedNoteFile` is strict — the "more than one note
+legitimately answers the query" methodological question raised in session
+2's Deferred section was not resolved and remains open.
+
+A fourth, off-hypothesis change landed after session 3: the `RunLog` from a
+normal run is now also rendered as a self-contained HTML report and opened
+automatically in the browser (`RunLogHtmlReport.cs`), instead of only being
+written as `runs/*.json`. This was an explicitly user-approved exception to
+the Scope Rules below (which normally keep "UI" out of scope), not a
+hypothesis-driven Build session. See
+`sessions/2026-08-22-stage2-run-report-auto-open.md`.
+
 ## Current Session Hypothesis
 
-Aggregating the run logs already captured in `runs/*.json` into simple
-retrieval metrics (e.g. Recall@K, Mean Reciprocal Rank, judge-vs-expected
-agreement rate) makes it possible to experimentally compare two retrieval
-configurations side by side, using numbers instead of re-reading console
-output by hand.
+Not yet defined. Stage 2 sessions 1–3 (golden set, local LLM judge, settings/
+corpus expansion, metrics aggregation) are all done. The next session should
+first decide whether Stage 2 is complete or needs one more session — e.g. to
+resolve the multiple-valid-answer scoring question above — before moving to
+Stage 3 (Agent with 2–3 tools and execution tracing).
 
 ## Current Session Result
 
-Not yet run — this is the next session, anticipated but not started. Likely
-shape: a small aggregation step (script or console mode) that reads one or
-more `runs/*.json` files and prints/compares metrics; see the "Deferred"
-section of `sessions/2026-08-14-stage2-golden-set-llm-judge-session2.md` for
-the open methodological question (how to score queries where more than one
-note in the corpus legitimately answers the query) that this session should
-resolve before writing the aggregation logic.
+Not yet run.
 
 ## Acceptance Criterion
 
