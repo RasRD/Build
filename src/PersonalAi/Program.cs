@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using PersonalAi.Chunking;
@@ -97,6 +98,11 @@ if (settings.RunLog.Enabled)
     var runLogPath = Path.Combine(runLogDirectory, $"{DateTimeOffset.UtcNow:yyyyMMdd-HHmmss}.json");
     await File.WriteAllTextAsync(runLogPath, JsonSerializer.Serialize(runLog, new JsonSerializerOptions { WriteIndented = true }));
     Console.WriteLine($"Run log written to {runLogPath}");
+
+    var runReportPath = Path.ChangeExtension(runLogPath, ".html");
+    await File.WriteAllTextAsync(runReportPath, RunLogHtmlReport.Render(runLog));
+    Console.WriteLine($"Run report written to {runReportPath}");
+    Process.Start(new ProcessStartInfo(runReportPath) { UseShellExecute = true });
 }
 else
 {
