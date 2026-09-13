@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
+using PersonalAi.Agent;
 using PersonalAi.Chunking;
 using PersonalAi.Configuration;
 using PersonalAi.Embeddings;
@@ -14,9 +15,6 @@ if (args.Length > 0 && args[0] == "metrics")
     RunMetricsMode(args.Skip(1).ToArray());
     return;
 }
-
-Console.WriteLine("PersonalAi – Stage 2: Golden set and LLM-as-judge evaluation");
-Console.WriteLine();
 
 var configuration = new ConfigurationBuilder()
     .SetBasePath(AppContext.BaseDirectory)
@@ -46,6 +44,28 @@ foreach (var (fileName, text) in MarkdownNoteReader.ReadAll(notesDirectory))
 Console.WriteLine($"Loaded {chunks.Count} chunks from '{notesDirectory}'.");
 Console.WriteLine();
 
+if (args.Length > 0 && args[0] == "agent")
+{
+    Console.WriteLine($"=== Stage 3 agent (Ollama, model: {settings.Agent.Model}) ===");
+    Console.WriteLine();
+
+    var userMessage = args.Length > 1
+        ? string.Join(' ', args.Skip(1))
+        : ReadAgentPrompt();
+
+    var tools = new AgentTools(notesDirectory, chunks, embeddingService, settings.Retrieval.TopK);
+    var client = new OllamaAgentClient(settings.Agent.Model, settings.Agent.OllamaBaseUrl);
+    var runner = new AgentRunner(client, tools, settings.Agent.MaxSteps);
+
+    var answer = await runner.RunAsync(userMessage);
+    Console.WriteLine();
+    Console.WriteLine("Final answer:");
+    Console.WriteLine(answer);
+    return;
+}
+
+Console.WriteLine("PersonalAi – Stage 2: Golden set and LLM-as-judge evaluation");
+Console.WriteLine();
 Console.WriteLine($"=== LLM-as-judge (Ollama, model: {settings.Judge.Model}) ===");
 Console.WriteLine();
 
@@ -107,6 +127,15 @@ if (settings.RunLog.Enabled)
 else
 {
     Console.WriteLine("Run log skipped (RunLog:Enabled is false; use the 'Experiment' launch profile to enable it).");
+}
+
+static string ReadAgentPrompt()
+{
+    Console.Write("> ");
+    var value = Console.ReadLine();
+    if (string.IsNullOrWhiteSpace(value))
+        throw new InvalidOperationException("Agent prompt cannot be empty.");
+    return value;
 }
 
 static void RunMetricsMode(string[] paths)
