@@ -7,6 +7,7 @@ sealed class AppSettings
     public ChunkingSettings Chunking { get; init; } = new();
     public RetrievalSettings Retrieval { get; init; } = new();
     public JudgeSettings Judge { get; init; } = new();
+    public AgentSettings Agent { get; init; } = new();
     public RunLogSettings RunLog { get; init; } = new();
 }
 
@@ -35,6 +36,13 @@ sealed class JudgeSettings
 {
     public string Model { get; init; } = "llama3";
     public string OllamaBaseUrl { get; init; } = "http://localhost:11434/";
+}
+
+sealed class AgentSettings
+{
+    public string Model { get; init; } = "llama3";
+    public string OllamaBaseUrl { get; init; } = "http://localhost:11434/";
+    public int MaxSteps { get; init; } = 5;
 }
 
 sealed class RunLogSettings
